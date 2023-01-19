@@ -14,6 +14,6 @@ include_directories(SYSTEM ${MPI_INCLUDE_PATH})
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
-add_executable(HPC_BNB main.cpp sample.cpp test_sample.cpp branch_n_bound_parallel.cpp adjust_sample.cpp another_sample.cpp optimised_sample.cpp branch_and_bound.cpp bnb_parallel_v1.cpp example.cpp)
+add_executable(HPC_BNB main.cpp sample.cpp test_sample.cpp branch_n_bound_parallel.cpp adjust_sample.cpp another_sample.cpp optimised_sample.cpp branch_and_bound.cpp bnb_parallel_v1.cpp example.cpp branch_n_bound_parallel_v4.cpp)
 
 target_link_libraries(HPC_BNB ${MPI_C_LIBRARIES})
