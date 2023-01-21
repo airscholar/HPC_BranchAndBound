@@ -2,7 +2,9 @@
 #include <cstdio>
 #include <limits>
 #include <mpi.h>
+#include <time.h>
 #include <vector>
+#include <cstring>
 #include <algorithm>
 
 using namespace std;
@@ -11,21 +13,26 @@ int myrank, num_procs;
 double tStart;
 std::vector<int> best_path;
 
-int estimateUpperBound(int* dist, int *visited, int n, int currentCity) {
+
+int estimateUpperBound(int* dist, std::vector<bool> &visited, int n, int currentCity) {
+    int upperBound = 0;
     int nearestUnvisitedCity = -1;
-    int nearestUnvisitedCityDistance = numeric_limits<int>::max();
+    int nearestUnvisitedCityDistance = INT_MAX;
     for (int i = 0; i < n; i++) {
         if (!visited[i]) {
+            upperBound += dist[currentCity * n + i];
             if (dist[currentCity * n + i] < nearestUnvisitedCityDistance) {
                 nearestUnvisitedCity = i;
                 nearestUnvisitedCityDistance = dist[currentCity * n + i];
             }
         }
     }
-    return nearestUnvisitedCityDistance;
+    upperBound += nearestUnvisitedCityDistance;
+    return upperBound;
 }
 
-void wsp(int *dist, int *visited, std::vector<int> &path, int &global_min_cost, int &min_cost, int n, int &cost) {
+
+void wsp(int *dist, std::vector<bool> &visited, std::vector<int> &path, int &global_min_cost, int &min_cost, int n, int &cost) {
     if (path.size() == n) {
         if (cost < min_cost) {
             min_cost = cost;
@@ -35,19 +42,17 @@ void wsp(int *dist, int *visited, std::vector<int> &path, int &global_min_cost, 
         }
         return;
     }
-    //check unvisited nodes only
     for (int i = 0; i < n; i++) {
         if (!visited[i]) {
             //check if the cost is greater than the min_cost
-            if (cost + dist[path.back() * n + i] > min_cost || cost + dist[path.back() * n + i] > global_min_cost || min_cost > global_min_cost) {
+            if (cost + dist[path.back() * n + i] > min_cost || cost + dist[path.back() * n + i] > global_min_cost) {
                 // cut the branch
                 break;
             }
-
-            if (cost + estimateUpperBound(dist, visited, n, i) >  global_min_cost) {
+            int upper_bound = estimateUpperBound(dist, visited, n, i);
+            if (cost + upper_bound > global_min_cost) {
                 break;
             }
-
             cost += dist[path.back() * n + i];
             path.push_back(i);
             visited[i] = true;
@@ -57,6 +62,31 @@ void wsp(int *dist, int *visited, std::vector<int> &path, int &global_min_cost, 
             cost -= dist[path.back() * n + i];
         }
     }
+}
+
+vector<int> generate_path_nearest_neighbor(int *dist, int N, int starting_city) {
+    vector<int> path;
+    path.push_back(starting_city);
+    vector<bool> visited(N, false);
+    visited[starting_city] = true;
+    int currentCity = starting_city;
+    for (int i = 0; i < N - 1; i++) {
+        int nearestCity = -1;
+        int nearestDistance = INT_MAX;
+        for (int j = 0; j < N; j++) {
+            if (!visited[j]) {
+                int distance = dist[currentCity * N + j];
+                if (distance < nearestDistance) {
+                    nearestCity = j;
+                    nearestDistance = distance;
+                }
+            }
+        }
+        path.push_back(nearestCity);
+        visited[nearestCity] = true;
+        currentCity = nearestCity;
+    }
+    return path;
 }
 
 vector<vector<int> > generate_path(int N, int starting_city) {
@@ -150,12 +180,7 @@ int main(int argc, char *argv[]) {
         std::vector<int> path = starting_cities[i];
 
         //initialize visited array
-//        std::vector<bool> visited(N, false);
-        int *visited = new int[N];
-        for (int i = 0; i < N; i++) {
-            visited[i] = false;
-        }
-
+        std::vector<bool> visited(N, false);
         //visited
         for (int j = 0; j < path.size(); j++) {
             visited[path[j]] = true;
@@ -167,7 +192,6 @@ int main(int argc, char *argv[]) {
             cost += dist[path[j] * N + path[j + 1]];
         }
 
-        if (min_cost > local_min_cost) break; // cut the branch
         wsp(dist, visited, path, min_cost, local_min_cost, N, cost);
 
         int *min_cost_array = new int[num_procs];
@@ -181,9 +205,6 @@ int main(int argc, char *argv[]) {
         for (int i = 0; i < N; i++) {
             best_path[i] = best_path_array[idx * N + i];
         }
-
-//        printf("Process %d: min_cost %d local cost %d current cost %d\n", myrank, min_cost, local_min_cost, cost);
-
         //broadcast the best path to all processes
         MPI_Bcast(&best_path[0], N, MPI_INT, idx, MPI_COMM_WORLD);
 
@@ -192,7 +213,6 @@ int main(int argc, char *argv[]) {
         //clean up memory
         delete[] min_cost_array;
         delete[] best_path_array;
-
     }
 
     if (myrank == 0) {
