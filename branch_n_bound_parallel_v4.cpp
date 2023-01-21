@@ -7,17 +7,16 @@
 
 using namespace std;
 
-int myrank, num_procs;
+int my_rank, num_process;
 double tStart;
-std::vector<int> best_path;
+vector<int> best_path;
+vector<int> idle_times;
 
-int estimateUpperBound(int* dist, int *visited, int n, int currentCity) {
-    int nearestUnvisitedCity = -1;
+int estimateUpperBound(const int* dist, bool* &visited, int n, int currentCity) {
     int nearestUnvisitedCityDistance = numeric_limits<int>::max();
     for (int i = 0; i < n; i++) {
-        if (!visited[i]) {
+        if (!(visited[i])) {
             if (dist[currentCity * n + i] < nearestUnvisitedCityDistance) {
-                nearestUnvisitedCity = i;
                 nearestUnvisitedCityDistance = dist[currentCity * n + i];
             }
         }
@@ -25,7 +24,7 @@ int estimateUpperBound(int* dist, int *visited, int n, int currentCity) {
     return nearestUnvisitedCityDistance;
 }
 
-void wsp(int *dist, int *visited, std::vector<int> &path, int &global_min_cost, int &min_cost, int n, int &cost) {
+void wsp(int* &dist, bool *visited, vector<int> &path, int &min_cost, int n, int &cost) {
     if (path.size() == n) {
         if (cost < min_cost) {
             min_cost = cost;
@@ -35,23 +34,20 @@ void wsp(int *dist, int *visited, std::vector<int> &path, int &global_min_cost, 
         }
         return;
     }
+
     //check unvisited nodes only
     for (int i = 0; i < n; i++) {
         if (!visited[i]) {
             //check if the cost is greater than the min_cost
-            if (cost + dist[path.back() * n + i] > min_cost || cost + dist[path.back() * n + i] > global_min_cost || min_cost > global_min_cost) {
+            if (cost + dist[path.back() * n + i] > min_cost ||
+                    cost + estimateUpperBound(dist, visited, n, i) >  min_cost) {
                 // cut the branch
                 break;
             }
-
-            if (cost + estimateUpperBound(dist, visited, n, i) >  global_min_cost) {
-                break;
-            }
-
             cost += dist[path.back() * n + i];
             path.push_back(i);
             visited[i] = true;
-            wsp(dist, visited, path, global_min_cost, min_cost, n, cost);
+            wsp(dist, visited, path, min_cost, n, cost);
             visited[i] = false;
             path.pop_back();
             cost -= dist[path.back() * n + i];
@@ -82,12 +78,12 @@ vector<vector<int> > generate_path(int N, int starting_city) {
 
 int main(int argc, char *argv[]) {
     MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &num_process);
     int N = 0;
     string filename;
 
-    if (argv[2] == NULL) {
+    if (argv[2] == nullptr) {
         cout << "Please enter file filename" << endl;
         return 1;
     } else
@@ -95,7 +91,7 @@ int main(int argc, char *argv[]) {
 
 //open filename
     FILE *fp = fopen(filename.c_str(), "r");
-    if (fp == NULL) {
+    if (fp == nullptr) {
         printf("Error opening file");
         return 1;
     }
@@ -105,9 +101,9 @@ int main(int argc, char *argv[]) {
     MPI_Bcast(&N, 1, MPI_INT, 0, MPI_COMM_WORLD);
     int *dist = new int[N * N];
     int min_cost = numeric_limits<int>::max();
-    int local_min_cost = numeric_limits<int>::max();
+    double total_blocked_time;
 
-    if (myrank == 0) {
+    if (my_rank == 0) {
         //fill the matrix with 0
         for (int i = 0; i < N; i++) {
             for (int j = 0; j < N; j++) {
@@ -135,30 +131,23 @@ int main(int argc, char *argv[]) {
     tStart = MPI_Wtime();
     best_path.resize(N);
 
-    int chunk_size = starting_cities.size() / num_procs;
-    int starting_city = myrank * chunk_size;
+    int chunk_size = starting_cities.size() / num_process;
+    int starting_city = my_rank * chunk_size;
     int ending_city = starting_city + chunk_size - 1;
 
-    if (myrank == num_procs - 1) {
+    if (my_rank == num_process - 1) {
         ending_city = starting_cities.size() - 1;
     }
-//    printf("Process %d: size %lu with starting city %d and ending city %d\n", myrank, starting_cities.size(), starting_city, ending_city);
-
-    int check = 0;
 
     for (int i = starting_city; i <= ending_city; i++) {
-        std::vector<int> path = starting_cities[i];
+        vector<int> path = starting_cities[i];
 
-        //initialize visited array
-//        std::vector<bool> visited(N, false);
-        int *visited = new int[N];
-        for (int i = 0; i < N; i++) {
-            visited[i] = false;
-        }
+        bool visited[N];
+        memset(visited, 0, sizeof(visited));
 
         //visited
-        for (int j = 0; j < path.size(); j++) {
-            visited[path[j]] = true;
+        for (int j : path) {
+            visited[j] = true;
         }
         //calculate the cost of the path
         int cost = 0;
@@ -167,27 +156,27 @@ int main(int argc, char *argv[]) {
             cost += dist[path[j] * N + path[j + 1]];
         }
 
-        if (min_cost > local_min_cost) break; // cut the branch
-        wsp(dist, visited, path, min_cost, local_min_cost, N, cost);
+        wsp(dist, visited, path, min_cost, N, cost);
 
-        int *min_cost_array = new int[num_procs];
-        MPI_Allgather(&local_min_cost, 1, MPI_INT, min_cost_array, 1, MPI_INT, MPI_COMM_WORLD);
-        int *best_path_array = new int[num_procs * N];
+        int *min_cost_array = new int[num_process];
+        double start = MPI_Wtime();
+        MPI_Allgather(&min_cost, 1, MPI_INT, min_cost_array, 1, MPI_INT, MPI_COMM_WORLD);
+        int *best_path_array = new int[num_process * N];
         MPI_Allgather(&best_path[0], N, MPI_INT, best_path_array, N, MPI_INT, MPI_COMM_WORLD);
+        double blocked_time = start - MPI_Wtime();
+
+        MPI_Reduce(&blocked_time, &total_blocked_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
         // Find the global minimum cost and best path among all processes
-        min_cost = *min_element(min_cost_array, min_cost_array + num_procs);
-        int idx = min_element(min_cost_array, min_cost_array + num_procs) - min_cost_array;
-        for (int i = 0; i < N; i++) {
-            best_path[i] = best_path_array[idx * N + i];
-        }
+        min_cost = *min_element(min_cost_array, min_cost_array + num_process);
+        int idx = min_element(min_cost_array, min_cost_array + num_process) - min_cost_array;
 
-//        printf("Process %d: min_cost %d local cost %d current cost %d\n", myrank, min_cost, local_min_cost, cost);
+        for (int j = 0; j < N; j++) {
+            best_path[j] = best_path_array[idx * N + j];
+        }
 
         //broadcast the best path to all processes
         MPI_Bcast(&best_path[0], N, MPI_INT, idx, MPI_COMM_WORLD);
-
-        local_min_cost = min_cost;
 
         //clean up memory
         delete[] min_cost_array;
@@ -195,16 +184,18 @@ int main(int argc, char *argv[]) {
 
     }
 
-    if (myrank == 0) {
-        std::cout << "Num of processes: " << num_procs << std::endl;
-        std::cout << "Global Min cost: " << min_cost << std::endl;
-        std::cout << "Global Best path: ";
+    if (my_rank == 0) {
+        printf("Num of processes: %d\n", num_process);
+        printf("Global Min cost: %d\n", min_cost);
+        printf("Global Best path: ");
         for (int i = 0; i < N; i++) {
-            std::cout << best_path[i] << " ";
+            printf("%d ", best_path[i]);
         }
-        std::cout << std::endl;
-        printf("\nTime taken: %f seconds\n", MPI_Wtime() - tStart);
+        printf("\n");
 
+        double total_time = MPI_Wtime() - tStart;
+        printf("\nTime taken: %f seconds\n", total_time);
+        printf("Idle time: %f seconds\n", total_blocked_time);
     }
 
     //clean up

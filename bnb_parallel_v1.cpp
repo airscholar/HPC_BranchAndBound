@@ -11,7 +11,7 @@ bool visited[MAX_N];
 int path[MAX_N];
 int best_path[MAX_N];
 int min_cost = numeric_limits<int>::max();
-int myrank, num_procs;
+int myrank, num_process;
 
 void wsp(int curr_pos, int n, int cost, int count) {
     if (count == n) {
@@ -36,7 +36,7 @@ void wsp(int curr_pos, int n, int cost, int count) {
 int main(int argc, char *argv[]) {
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    MPI_Comm_size(MPI_COMM_WORLD, &num_process);
     int N = 0;
     if (myrank == 0) {
         scanf("%d", &N);
@@ -58,10 +58,10 @@ int main(int argc, char *argv[]) {
     MPI_Bcast(&N, 1, MPI_INT, 0, MPI_COMM_WORLD);
     MPI_Bcast(&dist[0][0], N * N, MPI_INT, 0, MPI_COMM_WORLD);
 
-    int chunk_size = N / num_procs;
+    int chunk_size = N / num_process;
     int starting_city = myrank * chunk_size;
     int ending_city = starting_city + chunk_size - 1;
-    if (myrank == num_procs - 1) {
+    if (myrank == num_process - 1) {
         ending_city = N - 1;
     }
     for (int i = starting_city; i <= ending_city; i++) {

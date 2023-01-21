@@ -7,7 +7,7 @@
 
 using namespace std;
 
-int myrank, num_procs;
+int myrank, num_process;
 clock_t tStart;
 void wsp(int *dist, bool *visited, int *path, int *best_path, int &min_cost, int curr_pos, int n, int cost, int count) {
     if (count == n) {
@@ -36,7 +36,7 @@ void wsp(int *dist, bool *visited, int *path, int *best_path, int &min_cost, int
 int main(int argc, char *argv[]) {
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
+    MPI_Comm_size(MPI_COMM_WORLD, &num_process);
     MPI_Request request;
     int N = 0;
     string filename;
@@ -81,11 +81,11 @@ int main(int argc, char *argv[]) {
 
     MPI_Bcast(dist, N * N, MPI_INT, 0, MPI_COMM_WORLD);
 
-    int chunk_size = N / num_procs;
+    int chunk_size = N / num_process;
     int starting_city = myrank * chunk_size;
     int ending_city = starting_city + chunk_size - 1;
     //the last process will take care of the remaining cities
-    if (myrank == num_procs - 1) {
+    if (myrank == num_process - 1) {
         ending_city = N - 1;
     }
     for (int i = starting_city; i <= ending_city; i++) {
