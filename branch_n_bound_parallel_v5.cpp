@@ -2,37 +2,23 @@
 #include <cstdio>
 #include <limits>
 #include <mpi.h>
-#include <time.h>
 #include <vector>
-#include <cstring>
 #include <algorithm>
+#include <cstring>
 
 using namespace std;
 
-int myrank, num_procs;
-double tStart;
-std::vector<int> best_path;
+int my_rank, num_process; // rank of process and number of process
+double tStart; // start time
+vector<int> best_path; // best path
+int N = 0; // number of cities
+string filename; // file name
+double running_idle_time=0; // running idle time
+double total_idle_time=0; // total idle time
+const int START_PATH = 3; // start path
 
-
-int estimateUpperBound(int* dist, std::vector<bool> &visited, int n, int currentCity) {
-    int upperBound = 0;
-    int nearestUnvisitedCity = -1;
-    int nearestUnvisitedCityDistance = INT_MAX;
-    for (int i = 0; i < n; i++) {
-        if (!visited[i]) {
-            upperBound += dist[currentCity * n + i];
-            if (dist[currentCity * n + i] < nearestUnvisitedCityDistance) {
-                nearestUnvisitedCity = i;
-                nearestUnvisitedCityDistance = dist[currentCity * n + i];
-            }
-        }
-    }
-    upperBound += nearestUnvisitedCityDistance;
-    return upperBound;
-}
-
-
-void wsp(int *dist, std::vector<bool> &visited, std::vector<int> &path, int &global_min_cost, int &min_cost, int n, int &cost) {
+// function to find the best path using branch and bound
+void wsp(int* &dist, bool *visited, vector<int> &path, int &min_cost, int n, int &cost) {
     if (path.size() == n) {
         if (cost < min_cost) {
             min_cost = cost;
@@ -42,21 +28,19 @@ void wsp(int *dist, std::vector<bool> &visited, std::vector<int> &path, int &glo
         }
         return;
     }
+
+    //check unvisited nodes only
     for (int i = 0; i < n; i++) {
         if (!visited[i]) {
             //check if the cost is greater than the min_cost
-            if (cost + dist[path.back() * n + i] > min_cost || cost + dist[path.back() * n + i] > global_min_cost) {
+            if (cost + dist[path.back() * n + i] > min_cost) {
                 // cut the branch
-                break;
-            }
-            int upper_bound = estimateUpperBound(dist, visited, n, i);
-            if (cost + upper_bound > global_min_cost) {
                 break;
             }
             cost += dist[path.back() * n + i];
             path.push_back(i);
             visited[i] = true;
-            wsp(dist, visited, path, global_min_cost, min_cost, n, cost);
+            wsp(dist, visited, path, min_cost, n, cost);
             visited[i] = false;
             path.pop_back();
             cost -= dist[path.back() * n + i];
@@ -64,46 +48,27 @@ void wsp(int *dist, std::vector<bool> &visited, std::vector<int> &path, int &glo
     }
 }
 
-vector<int> generate_path_nearest_neighbor(int *dist, int N, int starting_city) {
-    vector<int> path;
-    path.push_back(starting_city);
-    vector<bool> visited(N, false);
-    visited[starting_city] = true;
-    int currentCity = starting_city;
-    for (int i = 0; i < N - 1; i++) {
-        int nearestCity = -1;
-        int nearestDistance = INT_MAX;
-        for (int j = 0; j < N; j++) {
-            if (!visited[j]) {
-                int distance = dist[currentCity * N + j];
-                if (distance < nearestDistance) {
-                    nearestCity = j;
-                    nearestDistance = distance;
-                }
-            }
-        }
-        path.push_back(nearestCity);
-        visited[nearestCity] = true;
-        currentCity = nearestCity;
-    }
-    return path;
-}
-
-vector<vector<int> > generate_path(int N, int starting_city) {
+// function to generate the starting paths
+vector<vector<int> > generate_starting_paths(int N, int starting_city) {
     vector<vector<int> > starting_cities;
 
+    // generate all possible starting cities
     for (int j = 0; j < N; j++) {
+        // skip the starting city
         if (j == starting_city) continue;
         for (int k = 0; k < N; k++) {
+            // skip the starting city
             if (k == starting_city || k == j) continue;
             for (int l = 0; l < N; l++) {
-                if (l == starting_city || l == k || l == j) continue;
-                vector<int> cities;
-                cities.push_back(starting_city);
-                cities.push_back(j);
-                cities.push_back(k);
-                cities.push_back(l);
-                starting_cities.push_back(cities);
+                // skip the starting city
+                if (l == starting_city || l == j || l == k) continue;
+                vector<int> current_path;
+                current_path.push_back(starting_city);
+                current_path.push_back(j);
+                current_path.push_back(k);
+                current_path.push_back(l);
+                // add the current path to the list of starting cities
+                starting_cities.push_back(current_path);
             }
         }
     }
@@ -112,12 +77,10 @@ vector<vector<int> > generate_path(int N, int starting_city) {
 
 int main(int argc, char *argv[]) {
     MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-    MPI_Comm_size(MPI_COMM_WORLD, &num_procs);
-    int N = 0;
-    string filename;
+    MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &num_process);
 
-    if (argv[2] == NULL) {
+    if (argv[2] == nullptr) {
         cout << "Please enter file filename" << endl;
         return 1;
     } else
@@ -125,19 +88,24 @@ int main(int argc, char *argv[]) {
 
 //open filename
     FILE *fp = fopen(filename.c_str(), "r");
-    if (fp == NULL) {
+    if (fp == nullptr) {
         printf("Error opening file");
         return 1;
     }
-
+    // read the number of cities
     fscanf(fp, "%d", &N);
-
+    // allocate memory for the distance matrix
+    best_path.resize(N);
+    // start time
+    tStart = MPI_Wtime();
+    // broadcast the number of cities to all processes
     MPI_Bcast(&N, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    // allocate memory for the distance matrix
     int *dist = new int[N * N];
+    // variable to store the minimum cost
     int min_cost = numeric_limits<int>::max();
-    int local_min_cost = numeric_limits<int>::max();
 
-    if (myrank == 0) {
+    if (my_rank == 0) {
         //fill the matrix with 0
         for (int i = 0; i < N; i++) {
             for (int j = 0; j < N; j++) {
@@ -159,72 +127,99 @@ int main(int argc, char *argv[]) {
         fclose(fp);
     }
 
+    double start_block_time = MPI_Wtime(); // start timer for the block
     MPI_Bcast(&dist[0], N * N, MPI_INT, 0, MPI_COMM_WORLD);
+    double end_block_time = MPI_Wtime(); // end timer for the block
+    running_idle_time += (end_block_time - start_block_time); // calculate the running idle time
 
-    vector<vector<int> > starting_cities = generate_path(N, 0);
-    tStart = MPI_Wtime();
-    best_path.resize(N);
+    // list of starting cities
+    vector<vector<int> > starting_cities;
+    // generate the starting paths
+    starting_cities = generate_starting_paths(N, START_PATH);
 
-    int chunk_size = starting_cities.size() / num_procs;
-    int starting_city = myrank * chunk_size;
+    // split the starting cities between the processes
+    int chunk_size = starting_cities.size() / num_process;
+    // starting city for the current process
+    int starting_city = my_rank * chunk_size;
+    // ending city for the current process
     int ending_city = starting_city + chunk_size - 1;
-
-    if (myrank == num_procs - 1) {
-        ending_city = starting_cities.size() - 1;
+    // if the number of starting cities is not divisible by the number of processes
+    // then the last process will take the remaining starting cities
+    if (my_rank == num_process - 1) {
+        //min of the last process
+        ending_city = min(ending_city, (int) starting_cities.size() - 1);
     }
-//    printf("Process %d: size %lu with starting city %d and ending city %d\n", myrank, starting_cities.size(), starting_city, ending_city);
-
-    int check = 0;
-
+    // start timer for the block
+    start_block_time = MPI_Wtime();
+    // iterate over the cities for the current process
     for (int i = starting_city; i <= ending_city; i++) {
-        std::vector<int> path = starting_cities[i];
-
-        //initialize visited array
-        std::vector<bool> visited(N, false);
+        // variable to store the current stating path
+        vector<int> path = starting_cities[i];
+        // variable to store the visited cities
+        bool visited[N];
+        memset(visited, 0, sizeof(visited));
         //visited
         for (int j = 0; j < path.size(); j++) {
             visited[path[j]] = true;
         }
         //calculate the cost of the path
         int cost = 0;
-
-        for (int j = 0; j < path.size() - 1; j++) {
+        for (int j = 0; j < path.size()-1; j++) {
             cost += dist[path[j] * N + path[j + 1]];
         }
+        // call the function to find the best path recursively
+        wsp(dist, visited, path, min_cost, N, cost);
 
-        wsp(dist, visited, path, min_cost, local_min_cost, N, cost);
-
-        int *min_cost_array = new int[num_procs];
-        MPI_Allgather(&local_min_cost, 1, MPI_INT, min_cost_array, 1, MPI_INT, MPI_COMM_WORLD);
-        int *best_path_array = new int[num_procs * N];
+        int *min_cost_array = new int[num_process]; // array to store the min_cost of each process
+        int *best_path_array = new int[num_process * N]; // array to store the best_path of each process
+        //gather the min_cost of all the processes
+        MPI_Allgather(&min_cost, 1, MPI_INT, min_cost_array, 1, MPI_INT, MPI_COMM_WORLD);
+        //gather the best_path of all the processes
         MPI_Allgather(&best_path[0], N, MPI_INT, best_path_array, N, MPI_INT, MPI_COMM_WORLD);
 
         // Find the global minimum cost and best path among all processes
-        min_cost = *min_element(min_cost_array, min_cost_array + num_procs);
-        int idx = min_element(min_cost_array, min_cost_array + num_procs) - min_cost_array;
-        for (int i = 0; i < N; i++) {
-            best_path[i] = best_path_array[idx * N + i];
+        min_cost = *min_element(min_cost_array, min_cost_array + num_process);
+        //get the index of the process with the minimum cost
+        int idx = min_element(min_cost_array, min_cost_array + num_process) - min_cost_array;
+        //copy the best path of the process with the minimum cost to the best_path vector
+        for (int j = 0; j < N; j++) {
+            best_path[j] = best_path_array[idx * N + j];
         }
         //broadcast the best path to all processes
         MPI_Bcast(&best_path[0], N, MPI_INT, idx, MPI_COMM_WORLD);
-
-        local_min_cost = min_cost;
 
         //clean up memory
         delete[] min_cost_array;
         delete[] best_path_array;
     }
+    end_block_time = MPI_Wtime(); //end of the idle time calculation
 
-    if (myrank == 0) {
-        std::cout << "Num of processes: " << num_procs << std::endl;
-        std::cout << "Global Min cost: " << min_cost << std::endl;
-        std::cout << "Global Best path: ";
+    //calculate the total idle time
+    running_idle_time += (end_block_time - start_block_time);
+    //print the process block time
+    running_idle_time = MPI_Wtime() - tStart - running_idle_time;
+
+//    printf("Process %d: running idle time = %f\n", my_rank, running_idle_time);
+
+    // sum up the total idle time of all the processes into the final_idle_time variable
+    MPI_Reduce(&running_idle_time, &total_idle_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
+
+    if (my_rank == 0) {
+        printf("Num of processes: %d\n", num_process);
+        printf("Global Min cost: %d\n", min_cost);
+        printf("Global Best path: ");
         for (int i = 0; i < N; i++) {
-            std::cout << best_path[i] << " ";
+            printf("%d ", best_path[i]);
         }
-        std::cout << std::endl;
-        printf("\nTime taken: %f seconds\n", MPI_Wtime() - tStart);
+        printf("\n");
 
+        double total_time = MPI_Wtime() - tStart;
+        printf("\nTime taken: %f seconds\n", total_time);
+        printf("Idle time: %f seconds\n", total_idle_time);
+        printf("Total time: %f seconds\n", total_time + total_idle_time);
+        //percentage efficiency
+        printf("Efficiency: %.2f%%\n", (total_time / (total_time + total_idle_time)) * 100);
     }
 
     //clean up

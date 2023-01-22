@@ -25,7 +25,7 @@ void wsp(int *dist, bool *visited, int *path, int *best_path, int &min_cost, int
         if (!visited[i] && dist[curr_pos * n + i]) {
             //check if the cost is greater than the min_cost
             if (cost + dist[curr_pos * n + i] > min_cost) {
-                continue;
+                break;
             }
             path[count] = i;
             visited[i] = true;
@@ -40,6 +40,7 @@ void parallel_tsp(int *dist, int n, int starting_city, int ending_city, int &min
     int *path = new int[n];
 
     min_cost = numeric_limits<int>::max();
+    int check = 0;
     for (int i = starting_city; i <= ending_city; i++) {
         path[0] = i;
         memset(visited, false, sizeof(bool) * n);
@@ -50,14 +51,12 @@ void parallel_tsp(int *dist, int n, int starting_city, int ending_city, int &min
         }
 
         wsp(dist, visited, path, best_path, min_cost, i, n, 0, 1);
-    }
-    // MPI all reduce on min_cost
-    MPI_Allreduce(MPI_IN_PLACE, &min_cost, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
 
-//    if (local_min_cost == min_cost) {
-//        // MPI all reduce on best_path
-//        MPI_Allreduce(MPI_IN_PLACE, best_path, n, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-//    }
+            // MPI all reduce on min_cost
+            MPI_Allreduce(MPI_IN_PLACE, &min_cost, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+            check++;
+    }
+
 }
 
 int main(int argc, char *argv[]) {
