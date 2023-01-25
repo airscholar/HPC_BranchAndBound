@@ -15,7 +15,7 @@ int N = 0; // number of cities
 string filename; // file name
 double running_idle_time=0; // running idle time
 double total_idle_time=0; // total idle time
-const int START_PATH = 3; // start path
+const int START_PATH = 0; // start path
 
 // function to find the best path using branch and bound
 void wsp(int* &dist, bool *visited, vector<int> &path, int &min_cost, int n, int &cost) {
