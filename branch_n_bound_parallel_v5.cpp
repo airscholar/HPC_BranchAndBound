@@ -10,15 +10,21 @@ using namespace std;
 
 int my_rank, num_process; // rank of process and number of process
 double tStart; // start time
-vector<int> best_path; // best path
 int N = 0; // number of cities
 string filename; // file name
 double running_idle_time=0; // running idle time
 double total_idle_time=0; // total idle time
-const int START_PATH = 0; // start path
+const int START_PATH = 2; // start path
 
+int calculate_cost(int* &dist, vector<int> &path) {
+    int cost = 0;
+    for (int i = 0; i < path.size() - 1; i++) {
+        cost += dist[path[i] * N + path[i + 1]];
+    }
+    return cost;
+}
 // function to find the best path using branch and bound
-void wsp(int* &dist, bool *visited, vector<int> &path, int &min_cost, int n, int &cost) {
+void wsp(int* &dist, bool *visited, vector<int> &path, vector<int> &best_path, int &min_cost, int n, int &cost) {
     if (path.size() == n) {
         if (cost < min_cost) {
             min_cost = cost;
@@ -40,7 +46,7 @@ void wsp(int* &dist, bool *visited, vector<int> &path, int &min_cost, int n, int
             cost += dist[path.back() * n + i];
             path.push_back(i);
             visited[i] = true;
-            wsp(dist, visited, path, min_cost, n, cost);
+            wsp(dist, visited, path, best_path, min_cost, n, cost);
             visited[i] = false;
             path.pop_back();
             cost -= dist[path.back() * n + i];
@@ -95,7 +101,7 @@ int main(int argc, char *argv[]) {
     // read the number of cities
     fscanf(fp, "%d", &N);
     // allocate memory for the distance matrix
-    best_path.resize(N);
+    vector<int> best_path(N);
     // start time
     tStart = MPI_Wtime();
     // broadcast the number of cities to all processes
@@ -168,7 +174,7 @@ int main(int argc, char *argv[]) {
             cost += dist[path[j] * N + path[j + 1]];
         }
         // call the function to find the best path recursively
-        wsp(dist, visited, path, min_cost, N, cost);
+        wsp(dist, visited, path, best_path, min_cost, N, cost);
 
         int *min_cost_array = new int[num_process]; // array to store the min_cost of each process
         int *best_path_array = new int[num_process * N]; // array to store the best_path of each process
@@ -198,8 +204,6 @@ int main(int argc, char *argv[]) {
     running_idle_time += (end_block_time - start_block_time);
     //print the process block time
     running_idle_time = MPI_Wtime() - tStart - running_idle_time;
-
-//    printf("Process %d: running idle time = %f\n", my_rank, running_idle_time);
 
     // sum up the total idle time of all the processes into the final_idle_time variable
     MPI_Reduce(&running_idle_time, &total_idle_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
