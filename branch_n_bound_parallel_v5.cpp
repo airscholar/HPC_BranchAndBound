@@ -199,7 +199,6 @@ int main(int argc, char *argv[]) {
         free(best_path_array);
     }
 
-    printf("Process %d Running idle time: %f", my_rank, running_idle_time);
     running_comm_time = running_comm_time / iteration_size;
 //    printf("Process %d Running comm time: %f size: %d start size: %d\n", my_rank, running_comm_time, iteration_size, starting_cities.size());
 
