@@ -15,19 +15,6 @@ double running_idle_time=0; // running idle time
 double total_idle_time=0; // total idle time
 const int START_PATH = 2; // start path
 
-// function to calculate the upper bound of the path
-int estimateUpperBound(const int* dist, bool* &visited, int n, int currentCity) {
-    int nearestUnvisitedCityDistance = numeric_limits<int>::max();
-    for (int i = 0; i < n; i++) {
-        if (!(visited[i])) {
-            if (dist[currentCity * n + i] < nearestUnvisitedCityDistance) {
-                nearestUnvisitedCityDistance = dist[currentCity * n + i];
-            }
-        }
-    }
-    return nearestUnvisitedCityDistance;
-}
-
 // function to find the best path using branch and bound
 void wsp(int* &dist, bool *visited, vector<int> &path, int &min_cost, int n, int &cost) {
     if (path.size() == n) {
@@ -44,8 +31,7 @@ void wsp(int* &dist, bool *visited, vector<int> &path, int &min_cost, int n, int
     for (int i = 0; i < n; i++) {
         if (!visited[i]) {
             //check if the cost is greater than the min_cost
-            if (cost + dist[path.back() * n + i] > min_cost ||
-                cost + estimateUpperBound(dist, visited, n, i) >  min_cost) {
+            if (cost + dist[path.back() * n + i] > min_cost) {
                 // cut the branch
                 break;
             }
@@ -136,6 +122,7 @@ int main(int argc, char *argv[]) {
     // generate the starting paths
     starting_cities = generate_starting_paths(N, START_PATH);
 
+    printf("Starting size %lu ", starting_cities.size());
     // iterate over the cities for the current process
     for (int i = 0; i < starting_cities.size(); i++) {
         // variable to store the current stating path

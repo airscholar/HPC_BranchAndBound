@@ -81,8 +81,11 @@ module load intel
 ## The main parameter to modify is your mpi program name
 ## - change YOUR_EXECUTABLE to your own filename
 ##
-
-mpirun -machinefile $PBS_NODEFILE -np ${cpus} ./main -i ./input/dist17
+for start_path in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16
+do
+  echo "Starting path $start_path on $cpus CPUs"
+  mpirun -machinefile $PBS_NODEFILE -np ${cpus} ./main -i ./input/dist17 $start_path
+done
 
 ## Tidy up the log directory
 ## DO NOT CHANGE THE LINE BELOW
