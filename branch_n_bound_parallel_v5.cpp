@@ -16,13 +16,6 @@ double running_comm_time=0; // running comm time
 double total_comm_time=0; // total comm time
 int START_PATH = 0; // start path
 
-inline int calculate_cost(int* &dist, vector<int> &path) {
-    int cost = 0;
-    for (int i = 0; i < path.size() - 1; i++) {
-        cost += dist[path[i] * N + path[i + 1]];
-    }
-    return cost;
-}
 // function to find the best path using branch and bound
 inline void wsp(int* &dist, bool *visited, vector<int> &path, int* &best_path, int &min_cost, int n, int &cost) {
     if (path.size() == n) {
@@ -53,7 +46,7 @@ inline void wsp(int* &dist, bool *visited, vector<int> &path, int* &best_path, i
 }
 
 // function to generate the starting paths
-inline vector<vector<int> > generate_starting_paths(int N, int starting_city) {
+inline vector<vector<int> > generate_starting_paths(int starting_city) {
     vector<vector<int> > starting_cities;
 
     // generate all possible starting cities
@@ -84,22 +77,38 @@ int main(int argc, char *argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &my_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &num_process);
 
-    if (argv[2] == nullptr) {
-        cout << "Please enter file filename" << endl;
-        return 1;
-    } else
+    if (argc != 4) {
+        cout << "Usage: " << argv[0] << " -i <filename> <starting city>" << endl;
+        exit(1);
+    } else {
+        //accept the filename from the command line
         filename = argv[2];
+        //accept the starting city from the command line
+        START_PATH = atoi(argv[3]);
+    }
 
     //accept the starting city from the command line
-    START_PATH = atoi(argv[3]);
     //open filename
     FILE *fp = fopen(filename.c_str(), "r");
     if (fp == nullptr) {
-        printf("Error opening file");
-        return 1;
+        printf("Error opening file\n");
+        exit(1);
     }
     // read the number of cities
     fscanf(fp, "%d", &N);
+
+    if(N < 4){
+        printf("Number of cities should be greater than 3\n");
+        exit(1);
+    }
+    else if (START_PATH > N-1){
+        printf("Starting city should be less than the number of cities\n");
+        exit(1);
+    }else if(num_process > N){
+        printf("Number of processes should be less than the number of cities\n");
+        exit(1);
+    }
+
     // allocate memory for the distance matrix
     int *dist = new int[N * N];
     // allocate memory for the best path
@@ -121,21 +130,17 @@ int main(int argc, char *argv[]) {
                 dist[i * N + j] = 0;
             } else {
                 fscanf(fp, "%d", &dist[i * N + j]);
-                dist[j * N + i] = dist[i * N + j];
+                dist[j * N + i] = dist[i * N + j]; // fill the matrix symmetrically
             }
         }
     }
 
     fclose(fp);
 
-    double start_block_time = MPI_Wtime(); // start timer for the block
-    MPI_Bcast(&dist[0], N * N, MPI_INT, 0, MPI_COMM_WORLD);
-    running_idle_time += MPI_Wtime() - start_block_time; // calculate the running idle time
-
     // list of starting cities
     vector<vector<int> > starting_cities;
     // generate the starting paths
-    starting_cities = generate_starting_paths(N, START_PATH);
+    starting_cities = generate_starting_paths(START_PATH);
 
     // split the starting cities between the processes
     int chunk_size = starting_cities.size() / num_process;
@@ -172,7 +177,7 @@ int main(int argc, char *argv[]) {
 
         int *min_cost_array = new int[num_process]; // array to store the min_cost of each process
         int *best_path_array = new int[num_process * N]; // array to store the best_path of each process
-        start_block_time = MPI_Wtime();
+        double start_block_time = MPI_Wtime();
         //gather the min_cost of all the processes
         MPI_Allgather(&min_cost, 1, MPI_INT, min_cost_array, 1, MPI_INT, MPI_COMM_WORLD);
         running_comm_time += MPI_Wtime() - start_block_time; // calculate the communication time
@@ -189,10 +194,6 @@ int main(int argc, char *argv[]) {
         for (int j = 0; j < N; j++) {
             best_path[j] = best_path_array[idx * N + j];
         }
-        //broadcast the best path to all processes
-        start_block_time = MPI_Wtime();
-        MPI_Bcast(&best_path[0], N, MPI_INT, idx, MPI_COMM_WORLD);
-        running_comm_time += MPI_Wtime() - start_block_time; // calculate the communication time
         iteration_size++;
         //clean up memory
         free(min_cost_array);
