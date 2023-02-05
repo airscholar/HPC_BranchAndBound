@@ -42,7 +42,7 @@ inline void wsp(int* &dist, bool *visited, vector<int> &path, int* &best_path, i
 }
 
 // function to generate the starting paths
-inline vector<vector<int> > generate_starting_paths(int N, int starting_city) {
+inline vector<vector<int> > generate_starting_paths(int starting_city) {
     vector<vector<int> > starting_cities;
 
     // generate all possible starting cities
@@ -86,6 +86,16 @@ int main(int argc, char *argv[]) {
     }
     // read the number of cities
     fscanf(fp, "%d", &N);
+
+    if(N < 4){
+        printf("Number of cities should be greater than 3\n");
+        exit(1);
+    }
+    else if (START_PATH > N-1){
+        printf("Starting city should be less than the number of cities\n");
+        exit(1);
+    }
+
     // allocate memory for the distance matrix
     int *dist = new int[N * N];
     // allocate memory for the best path
@@ -115,7 +125,7 @@ int main(int argc, char *argv[]) {
     // list of starting cities
     vector<vector<int> > starting_cities;
     // generate the starting paths
-    starting_cities = generate_starting_paths(N, START_PATH);
+    starting_cities = generate_starting_paths(START_PATH);
 
     // split the starting cities between the processes
     int chunk_size = starting_cities.size();
@@ -163,8 +173,10 @@ int main(int argc, char *argv[]) {
         }
     }
 
-
+    //calculate the total time
     double total_time = (clock() - tStart) / CLOCKS_PER_SEC;
+
+    //print the results
     printf("Num of processes: %d\n", 1);
     printf("Global Min cost: %d\n", min_cost);
     printf("Global Best path: ");

@@ -1,0 +1,4 @@
+/Applications/CLion.app/Contents/bin/cmake/mac/bin/cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_MAKE_PROGRAM=/Applications/CLion.app/Contents/bin/ninja/mac/ninja -DCMAKE_C_COMPILER=/opt/homebrew/bin/mpicc -G Ninja -S /Users/airscholar/CLionProjects/HPC-BNB -B /Users/airscholar/CLionProjects/HPC-BNB/cmake-build-release
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /Users/airscholar/CLionProjects/HPC-BNB/cmake-build-release

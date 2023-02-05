@@ -4,7 +4,7 @@
 ## -----------------------------------------
 ##
 ## Follow the 6 steps below to configure your job
-##
+## 
 ## STEP 1:
 ##
 ## Enter a job name after the -N on the line below:
@@ -24,7 +24,7 @@
 ##	48 CPUs: select=3:ncpus=16:mpiprocs=16
 ##	..etc..
 ##
-#PBS -l select=2:ncpus=16:mpiprocs=16
+#PBS -l select=1:ncpus=1:mpiprocs=1
 ##
 ## STEP 3:
 ##
@@ -48,7 +48,7 @@
 ## with your Cranfield email address on the PBS -M line below:
 ## Your email address is NOT your username
 ##
-#PBS -m abe
+#PBS -m abe 
 #PBS -M yusuf.ganiyu.207@cranfield.ac.uk
 ##
 ## ====================================
@@ -66,25 +66,25 @@ export cpus=`cat $PBS_NODEFILE | wc -l`
 ## AND HERE
 ## ========
 ##
-## STEP 5:
-##
+## STEP 5: 
+## 
 ##  Load the default application environment
 ##  For a specific version add the version number, e.g.
 ##  module load intel/2016b
 ##
 module load intel
 ##
-## STEP 6:
-##
-## Run MPI code
+## STEP 6: 
+## 
+## Run MPI code 
 ##
 ## The main parameter to modify is your mpi program name
 ## - change YOUR_EXECUTABLE to your own filename
-##
+## 
 
 for startPath in 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17
 do
-mpirun -machinefile $PBS_NODEFILE -np ${cpus} ../main -i ../input/dist19 $startPath
+../main -i ../input/dist17 $startPath
 done
 
 ## Tidy up the log directory
