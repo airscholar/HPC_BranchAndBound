@@ -204,6 +204,7 @@ int main(int argc, char *argv[]) {
         free(best_path_array);
     }
 
+    // calculate the average communication time per process
     running_comm_time = running_comm_time / iteration_size;
 
     // sum up the total comm time of all the processes into the final_comm_time variable
