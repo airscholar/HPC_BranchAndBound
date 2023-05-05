@@ -17,6 +17,13 @@ double total_comm_time=0; // total comm time
 int START_PATH; // start path
 
 // function to find the best path using branch and bound
+/// @param dist the distance matrix
+/// @param visited the visited array
+/// @param path the current path
+/// @param best_path the best path
+/// @param min_cost the min cost
+/// @param n the number of cities
+/// @param cost the current cost
 inline void wsp(int* &dist, bool *visited, vector<int> &path, int* &best_path, int &min_cost, int n, int &cost) {
     if (path.size() == n) {
         if (cost < min_cost) {
@@ -46,6 +53,8 @@ inline void wsp(int* &dist, bool *visited, vector<int> &path, int* &best_path, i
 }
 
 // function to generate the starting paths
+/// @param starting_city the starting city
+/// @return the list of starting cities
 inline vector<vector<int> > generate_starting_paths(int starting_city) {
     vector<vector<int> > starting_cities;
 
@@ -72,6 +81,9 @@ inline vector<vector<int> > generate_starting_paths(int starting_city) {
     return starting_cities;
 }
 
+/// @param dist the distance matrix
+/// @param path the current path
+/// @return the cost of the current path
 int calculate_cost(int* &dist, vector<int> &path) {
     int cost = 0;
     for (int j = 0; j < path.size() - 1; j++) {

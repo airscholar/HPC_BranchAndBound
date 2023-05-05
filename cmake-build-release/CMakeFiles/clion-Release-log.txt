@@ -1,4 +1,19 @@
-/Applications/CLion.app/Contents/bin/cmake/mac/bin/cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_MAKE_PROGRAM=/Applications/CLion.app/Contents/bin/ninja/mac/ninja -DCMAKE_C_COMPILER=/opt/homebrew/bin/mpicc -G Ninja -S /Users/airscholar/CLionProjects/HPC-BNB -B /Users/airscholar/CLionProjects/HPC-BNB/cmake-build-release
+/Applications/CLion.app/Contents/bin/cmake/mac/bin/cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_MAKE_PROGRAM=/Applications/CLion.app/Contents/bin/ninja/mac/ninja -DCMAKE_C_COMPILER=/opt/homebrew/bin/mpicc -DCMAKE_CXX_COMPILER=/usr/bin/gcc -G Ninja -S "/Users/airscholar/Library/CloudStorage/OneDrive-CranfieldUniversity/Documents/CLionProjects/HPC-BNB 2" -B "/Users/airscholar/Library/CloudStorage/OneDrive-CranfieldUniversity/Documents/CLionProjects/HPC-BNB 2/cmake-build-release"
+-- The C compiler identification is Clang 16.0.1
+-- The CXX compiler identification is AppleClang 14.0.3.14030022
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /opt/homebrew/bin/mpicc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /usr/bin/gcc - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found MPI_C: /opt/homebrew/bin/mpicc (found version "3.1") 
+-- Found MPI_CXX: /opt/homebrew/Cellar/open-mpi/4.1.5/lib/libmpi.dylib (found version "3.1") 
+-- Found MPI: TRUE (found version "3.1")  
 -- Configuring done
 -- Generating done
--- Build files have been written to: /Users/airscholar/CLionProjects/HPC-BNB/cmake-build-release
+-- Build files have been written to: /Users/airscholar/Library/CloudStorage/OneDrive-CranfieldUniversity/Documents/CLionProjects/HPC-BNB 2/cmake-build-release

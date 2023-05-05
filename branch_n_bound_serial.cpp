@@ -13,6 +13,13 @@ string filename; // file name
 int START_PATH = 0; // start path
 
 // function to find the best path using branch and bound
+/// @param dist the distance matrix
+/// @param visited the visited array
+/// @param path the current path
+/// @param best_path the best path
+/// @param min_cost the min cost
+/// @param n the number of cities
+/// @param cost the current cost
 inline void wsp(int* &dist, bool *visited, vector<int> &path, int* &best_path, int &min_cost, int n, int &cost) {
     if (path.size() == n) {
         if (cost < min_cost) {
@@ -42,6 +49,8 @@ inline void wsp(int* &dist, bool *visited, vector<int> &path, int* &best_path, i
 }
 
 // function to generate the starting paths
+/// @param starting_city the starting city
+/// @return the list of starting cities
 inline vector<vector<int> > generate_starting_paths(int starting_city) {
     vector<vector<int> > starting_cities;
 
